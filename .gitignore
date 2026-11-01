@@ -11,6 +11,9 @@ env/
 
 # Test and tooling caches
 .pytest_cache/
+.cache/
+cache/
+.streamlit/cache/
 .coverage
 htmlcov/
 .mypy_cache/
@@ -34,5 +37,13 @@ Thumbs.db
 # Large raw CSV datasets (prevent pushing large files to GitHub)
 *.csv
 processed/*.csv
+
+# Local data extracts; retain the versioned deployment Parquet source.
+*.parquet
+!data/parquet/*.parquet
 *.db
 *.sqlite
+*.sqlite3
+*.feather
+*.h5
+*.hdf5

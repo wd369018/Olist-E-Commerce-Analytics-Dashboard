@@ -5,8 +5,11 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import Mock
 
+import pandas as pd
 import pytest
 from streamlit.testing.v1 import AppTest
+
+from dashboard.data import PARQUET_TABLES
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app.py"
@@ -122,3 +125,24 @@ def test_pages_render_with_only_canceled_orders(page):
     at.session_state["filter_statuses"] = ["canceled"]
     at.run()
     assert not at.exception, f"{page} raised: {[exc.value for exc in at.exception]}"
+
+
+def test_app_and_every_page_render_with_empty_source(tmp_path, monkeypatch):
+    empty_source = tmp_path / "parquet"
+    empty_source.mkdir()
+    for table in PARQUET_TABLES:
+        source = ROOT / "data" / "parquet" / f"{table}.parquet"
+        frame = pd.read_parquet(source)
+        frame.iloc[:0].to_parquet(empty_source / f"{table}.parquet", index=False)
+    monkeypatch.setenv("OLIST_PARQUET_DIR", str(empty_source))
+
+    app = AppTest.from_file(str(APP), default_timeout=900)
+    app.run()
+    assert not app.exception, [exc.value for exc in app.exception]
+
+    for page in sorted(PAGES.glob("*.py")):
+        if page.name == "__init__.py":
+            continue
+        at = AppTest.from_file(str(page), default_timeout=900)
+        at.run()
+        assert not at.exception, f"{page.name} raised: {[exc.value for exc in at.exception]}"

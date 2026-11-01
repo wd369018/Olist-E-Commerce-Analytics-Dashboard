@@ -2,7 +2,7 @@
 
 An interactive **Streamlit** analytics dashboard for the Olist Brazilian e-commerce dataset. It turns the Olist datasets into eight focused pages covering revenue, customers, products and sellers, delivery, satisfaction, payments and source data quality.
 
-Every number is calculated from the source datasets. CSV files are converted to Parquet for fast loading, and Streamlit caches the prepared data between reruns. SQLite remains available as a fallback and can be selected with `OLIST_DB_PATH`.
+Every number is calculated from the source datasets. The versioned `data/parquet/` files are the default deployment source; SQLite and raw CSV inputs are optional local alternatives. Streamlit caches the prepared data between reruns and invalidates it when the source files change.
 
 ## Quick start (Windows / VS Code)
 
@@ -16,18 +16,18 @@ py -m streamlit run app.py
 
 Streamlit opens `http://localhost:8501` in your browser. Keep the terminal running while you use the dashboard.
 
-> On this machine the `python` command is not available; use the Windows Python launcher **`py`** as shown above. The project was built and tested with Python 3.14, pandas 3, Plotly 7 and Streamlit 1.57.
+> Use the Windows Python launcher **`py`** if `python` is not available. The project was tested with Python 3.14.3, Streamlit 1.57.0, pandas 3.0.3, NumPy 2.4.4, Plotly 7.0.0 and PyArrow 24.0.0.
 
 ## Deployment
 
-The committed `data/parquet/` datasets are the default production source. Install the requirements and start Streamlit directly:
+The committed `data/parquet/` datasets are the default production source. On Streamlit Community Cloud, select **Python 3.14** under **Advanced settings** when deploying; Cloud currently defaults to Python 3.12 and configures the runtime version in the deployment settings. The requirements are pinned to the dependency versions tested with Python 3.14.3. Install them and start Streamlit directly:
 
 ```sh
 python -m pip install -r requirements.txt
 streamlit run app.py
 ```
 
-No SQLite database initialization or data conversion is needed at startup when the committed Parquet datasets are present. Use `.env.example` as a template for the supported variable names. Streamlit does not load `.env` files automatically, so set the variables in your shell or hosting provider's environment settings; keep any local `.env` file out of version control.
+No SQLite database initialization or data conversion is needed at startup when the committed Parquet datasets are present. The package metadata for the pinned NumPy, pandas, Streamlit and PyArrow versions includes Python 3.14 support, and the complete test suite passes on Python 3.14.3. Python 3.14.10 itself is not installed in the current verification environment; Community Cloud selects the Python minor release and supplies its current patch release. Use `.env.example` as a template for the supported variable names. Streamlit does not load `.env` files automatically, so set variables in your shell or hosting provider's environment settings; keep any local `.env` file out of version control.
 
 If Parquet needs to be rebuilt from raw CSV files, run the conversion once during the image/build or release step:
 
@@ -110,13 +110,11 @@ The dashboard resolves the data source in this order:
 1. `OLIST_DB_PATH` environment variable, if set (SQLite database).
 2. `OLIST_PARQUET_DIR`, if set, or the committed `data/parquet/` directory when all required datasets are available.
 3. CSV-to-Parquet conversion from `OLIST_CSV_DIR` (defaults to the project root), when the Parquet dataset is incomplete.
-4. `processed/olist_ecommerce.db`, then `olist_ecommerce.db` (SQLite fallback).
+4. `processed/olist_ecommerce.db`, then `olist_ecommerce.db` (optional local SQLite fallback).
 
-SQLite connections use `mode=ro`. The deployed dashboard needs no SQLite schema initialization: its analytics source is the versioned Parquet dataset. A complete Parquet directory is read without attempting to write to the application filesystem, which is suitable for read-only and ephemeral deployments. CSV files are only read during conversion; the dashboard never modifies or deletes the source data.
+SQLite connections use `mode=ro` and are closed after each load. The deployed dashboard needs no SQLite schema initialization: its analytics source is the versioned Parquet dataset. A complete Parquet directory is read without writing to the application filesystem, which is suitable for read-only and ephemeral deployments. CSV files are only read during conversion; the dashboard never modifies or deletes the source data. The raw CSV and SQLite files are ignored by Git; the committed Parquet files are intentionally exempted from the dataset ignore rule because they are required by the hosted app.
 
 For startup commands, CSV preparation, environment-variable setup, and SQLite override behaviour, see [Deployment](#deployment). The complete committed Parquet dataset is selected without conversion or writes. SQLite connections are read-only.
-
-The deployment and loader test suite has 91 passing tests; the preparation CLI and Python syntax checks also pass.
 
 Tables used (source row counts):
 
@@ -147,7 +145,7 @@ This is covered by tests that assert no order or revenue inflation.
 
 ### Data-quality caveats handled by the app
 
-- The processed database stores some missing dates, categories and review comments as the text value **`"0"`**. These are normalised to null/missing before use.
+- Some source files store missing dates, categories and review comments as the text value **`"0"`**. These are normalised to null/missing before use.
 - Invalid or missing timestamps are parsed to null; negative delivery durations are excluded from delivery metrics.
 - Eight delivered orders have no customer delivery date; late-rate and delivery-time averages use only delivered orders with valid dates.
 - 610 products have no usable category; they are labelled **Uncategorized**.
@@ -175,8 +173,8 @@ E-commerce-new-project/
 │   ├── pages/                  # Eight thin Streamlit page entry points
 │   └── views/                  # Page layouts and visualisations
 ├── tests/                      # Data, filter, metric, quality and AppTest suites
-├── processed/
-│   └── olist_ecommerce.db      # Default analytics database (read-only)
+├── data/parquet/               # Versioned, read-only deployment datasets
+├── scripts/prepare_data.py     # Optional CSV-to-Parquet preparation command
 ├── .streamlit/config.toml      # Light/dark native themes and local server settings
 ├── requirements.txt
 ├── pytest.ini
@@ -185,20 +183,21 @@ E-commerce-new-project/
 
 ## Configuration
 
-Point the dashboard at a different SQLite database for the current PowerShell session:
+The default deployment source requires no environment variables. To use a prepared Parquet directory:
+
+```powershell
+$env:OLIST_PARQUET_DIR = "D:\data\parquet"
+py -m streamlit run app.py
+```
+
+To select a non-empty SQLite database instead:
 
 ```powershell
 $env:OLIST_DB_PATH = "D:\data\olist_ecommerce.db"
 py -m streamlit run app.py
 ```
 
-To make it persistent for your Windows user:
-
-```powershell
-[Environment]::SetEnvironmentVariable("OLIST_DB_PATH", "D:\data\olist_ecommerce.db", "User")
-```
-
-The database must be a non-empty SQLite file with the Olist table names listed above. The path is validated before any page loads.
+SQLite must contain the Olist source tables used by the dashboard. `.env.example` lists supported variables; configure them in the shell or hosting provider rather than relying on a local `.env` file.
 
 ## Tests
 
@@ -206,7 +205,7 @@ The database must be a non-empty SQLite file with the Olist table names listed a
 py -m pytest -q
 ```
 
-The suite currently contains **83 tests** and takes about **7–8 minutes** on a first run because every Streamlit page is executed against the ~100 MB database. Streamlit's cache makes later page runs faster.
+The suite currently contains **94 tests** and takes about two minutes on this machine. It exercises every dashboard page, filters, empty selections and an entirely empty Parquet source, data loading and metrics.
 
 Useful subsets:
 
@@ -233,18 +232,18 @@ The `missing ScriptRunContext` messages sometimes printed by Streamlit during ba
 
 | Problem | Fix |
 | --- | --- |
-| **Database could not be opened** | Confirm `processed/olist_ecommerce.db` exists and is non-empty, or set `OLIST_DB_PATH` to the correct `.db` file. The root `olist_ecommerce.db` is a 0-byte placeholder. |
+| **Dashboard cannot load the datasets** | Confirm all required Parquet files exist in `data/parquet/`, or set `OLIST_PARQUET_DIR` to a complete dataset directory. To use SQLite instead, set `OLIST_DB_PATH` to a non-empty database with the required Olist tables. |
 | **`python` is not recognized** | Use `py` instead, e.g. `py -m streamlit run app.py`. |
 | **`streamlit` is not recognized** | Install dependencies with `py -m pip install -r requirements.txt`, then run `py -m streamlit run app.py`. |
-| **First load is slow** | The database is ~100 MB and is loaded once, then cached. Use **Reload** only after changing the database. |
+| **First load is slow** | The Parquet datasets are loaded once and cached. Cache keys include source file size and modification time, so replacing files at the same path triggers a reload. |
 | **Port 8501 is already in use** | Run on another port: `py -m streamlit run app.py --server.port 8502`. |
 | **Filters return no data** | Widen the date range, clear status/state/category selections, or press **Reset**. A page with zero rows shows an empty-state message rather than an error. |
-| **Figures look stale** | Press **Reload** to clear the Streamlit data cache, or refresh the browser. |
+| **Figures look stale** | The app detects changes to dataset files at the same path. Press **Reload** to clear all Streamlit data caches if needed. |
 
 ## Notes
 
-- This is a local, read-only analytics project. No data is uploaded, published or deployed by the app.
-- Raw CSV files, the processed SQLite database and the existing project files were left intact.
+- The default analytics source is the versioned Parquet dataset. SQLite connections are read-only.
+- Raw CSV files and local databases are excluded from version control; the deployment Parquet dataset is committed.
 - Currency is Brazilian real (**R$**). Revenue figures are nominal, not inflation-adjusted.
 - The final months of the Olist source are incomplete; monthly charts label them as provisional where relevant.
 - Data attribution: **Olist Brazilian E-Commerce Public Dataset** (originally published on Kaggle for educational and research use).

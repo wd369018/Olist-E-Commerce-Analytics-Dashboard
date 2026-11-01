@@ -116,15 +116,41 @@ def resolve_dataset_path() -> Path:
     return resolve_db_path()
 
 
+def data_source_fingerprint(source_path: str | Path) -> tuple[tuple[str, int, int], ...]:
+    """Return file metadata used to invalidate cached data when its source changes."""
+    path = Path(source_path).expanduser().resolve()
+    if not path.exists():
+        raise FileNotFoundError(f"Olist data source not found: {path}")
+
+    files = sorted(path.glob("*.parquet")) if path.is_dir() else [path]
+    return tuple(
+        (str(file), file.stat().st_size, file.stat().st_mtime_ns)
+        for file in files
+    )
+
+
 @st.cache_data(show_spinner="Loading Olist analytics dataset…", max_entries=2)
+def _load_dataset(
+    source_path: str,
+    source_fingerprint: tuple[tuple[str, int, int], ...],
+) -> dict[str, Any]:
+    _ = source_fingerprint  # Streamlit hashes this argument as part of the cache key.
+    return load_data(Path(source_path))
+
+
 def load_dataset(source_path: str | Path | None = None) -> dict[str, Any]:
     """Load and prepare all tables with Streamlit caching.
 
     Loads a Parquet directory or SQLite database and caches the resulting
-    in-memory structure across all page reruns.
+    in-memory structure across page reruns. File metadata is part of the cache
+    key so replacing a source at the same path cannot return stale data.
     """
-    path = Path(source_path) if source_path is not None else resolve_dataset_path()
-    return load_data(path)
+    path = (
+        Path(source_path).expanduser().resolve()
+        if source_path is not None
+        else resolve_dataset_path().resolve()
+    )
+    return _load_dataset(str(path), data_source_fingerprint(path))
 
 
 def get_dataset(source_path: str | Path | None = None) -> dict[str, Any]:

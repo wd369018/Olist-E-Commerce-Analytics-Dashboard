@@ -5,7 +5,12 @@ import pandas as pd
 import pytest
 
 from scripts.prepare_data import prepare_data
-from utils.data_loader import CSV_TABLES, convert_csv_to_parquet, resolve_dataset_path
+from utils.data_loader import (
+    CSV_TABLES,
+    convert_csv_to_parquet,
+    load_dataset,
+    resolve_dataset_path,
+)
 
 
 def test_convert_csv_to_parquet_includes_each_olist_dataset(tmp_path):
@@ -85,6 +90,27 @@ def test_resolve_incomplete_configured_parquet_reports_missing_data(tmp_path, mo
 
     with pytest.raises(FileNotFoundError, match="Incomplete Parquet dataset"):
         resolve_dataset_path()
+
+
+def test_load_dataset_reloads_when_source_changes_at_same_path(tmp_path, monkeypatch):
+    source = tmp_path / "source.db"
+    source.write_bytes(b"first")
+    calls = []
+
+    def fake_load_data(path):
+        calls.append(path)
+        return {"source": str(path), "load": len(calls)}
+
+    monkeypatch.setattr("utils.data_loader.load_data", fake_load_data)
+    first = load_dataset(source)
+    assert load_dataset(source) == first
+    assert len(calls) == 1
+
+    source.write_bytes(b"second version")
+    refreshed = load_dataset(source)
+
+    assert refreshed["load"] == 2
+    assert len(calls) == 2
 
 
 def test_prepare_data_requires_all_dashboard_tables(tmp_path):

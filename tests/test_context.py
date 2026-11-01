@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 
-from dashboard.context import _normalise_date_range
+from dashboard.context import _normalise_date_range, date_range_text
 from dashboard.theme import css_variables, native_sync_script, normalise_mode, tokens
 
 MINIMUM = date(2016, 1, 1)
@@ -53,6 +53,10 @@ def test_formatted_date_strings_are_parsed():
 
     start2, end2 = _normalise_date_range(("2018-05-01",), MINIMUM, MAXIMUM)
     assert start2 == end2 == date(2018, 5, 1)
+
+
+def test_date_range_text_handles_dataset_without_dates():
+    assert date_range_text({"metadata": {"date_min": None, "date_max": None}}) == "No dated orders"
 
 
 def test_theme_modes_have_distinct_canvas_and_chrome_tokens():

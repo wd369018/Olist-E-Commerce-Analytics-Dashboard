@@ -10,7 +10,7 @@ import streamlit as st
 
 from .filters import AnalysisContext, FilterSelection, apply_filters, filter_options
 from .quality import quality_report
-from utils.data_loader import load_dataset, resolve_dataset_path
+from utils.data_loader import data_source_fingerprint, load_dataset, resolve_dataset_path
 
 
 def database_path() -> str:
@@ -22,24 +22,42 @@ def get_data(db_path: str) -> dict[str, Any]:
 
 
 @st.cache_data(show_spinner=False, max_entries=2)
-def get_filter_options(db_path: str) -> dict[str, Any]:
+def _cached_filter_options(
+    db_path: str,
+    source_fingerprint: tuple[tuple[str, int, int], ...],
+) -> dict[str, Any]:
+    _ = source_fingerprint
     return filter_options(get_data(db_path))
 
 
+def get_filter_options(db_path: str) -> dict[str, Any]:
+    return _cached_filter_options(db_path, data_source_fingerprint(db_path))
+
+
 @st.cache_data(show_spinner=False, max_entries=2)
-def get_quality_report(db_path: str) -> dict[str, Any]:
+def _cached_quality_report(
+    db_path: str,
+    source_fingerprint: tuple[tuple[str, int, int], ...],
+) -> dict[str, Any]:
+    _ = source_fingerprint
     return quality_report(get_data(db_path))
+
+
+def get_quality_report(db_path: str) -> dict[str, Any]:
+    return _cached_quality_report(db_path, data_source_fingerprint(db_path))
 
 
 @st.cache_data(show_spinner=False, max_entries=4)
 def _filtered_context(
     db_path: str,
+    source_fingerprint: tuple[tuple[str, int, int], ...],
     start: str | None,
     end: str | None,
     statuses: tuple[str, ...],
     states: tuple[str, ...],
     categories: tuple[str, ...],
 ) -> AnalysisContext:
+    _ = source_fingerprint
     data = get_data(db_path)
     selection = FilterSelection(
         start_date=date.fromisoformat(start) if start else None,
@@ -137,6 +155,7 @@ def get_context() -> AnalysisContext:
     selection = selection_from_session(options)
     return _filtered_context(
         db_path,
+        data_source_fingerprint(db_path),
         selection.start_date.isoformat() if selection.start_date else None,
         selection.end_date.isoformat() if selection.end_date else None,
         selection.statuses,
@@ -178,6 +197,10 @@ def filter_summary(selection: FilterSelection, options: dict[str, Any]) -> str:
 
 def date_range_text(data: dict[str, Any]) -> str:
     metadata = data["metadata"]
-    start = pd.Timestamp(metadata["date_min"]).strftime("%d %b %Y")
-    end = pd.Timestamp(metadata["date_max"]).strftime("%d %b %Y")
+    start_date = pd.to_datetime(metadata.get("date_min"), errors="coerce")
+    end_date = pd.to_datetime(metadata.get("date_max"), errors="coerce")
+    if pd.isna(start_date) or pd.isna(end_date):
+        return "No dated orders"
+    start = start_date.strftime("%d %b %Y")
+    end = end_date.strftime("%d %b %Y")
     return f"{start} → {end}"
