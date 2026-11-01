@@ -18,6 +18,9 @@ htmlcov/
 
 # Streamlit secrets and local overrides
 .streamlit/secrets.toml
+.env
+.env.*
+!.env.example
 
 # OS / editor files
 .DS_Store

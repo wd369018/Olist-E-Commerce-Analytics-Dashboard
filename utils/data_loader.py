@@ -13,7 +13,7 @@ import pandas as pd
 import streamlit as st
 
 from dashboard.config import resolve_db_path
-from dashboard.data import load_data
+from dashboard.data import PARQUET_TABLES, load_data
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PARQUET_DIR = PROJECT_ROOT / "data" / "parquet"
@@ -30,6 +30,12 @@ CSV_TABLES = [
 ]
 
 
+def _configured_path(variable: str, default: Path) -> Path:
+    """Return a configured data path, expanding a user-home prefix if present."""
+    value = os.getenv(variable)
+    return Path(value).expanduser() if value and value.strip() else default
+
+
 def convert_csv_to_parquet(
     csv_dir: Path | str | None = None,
     target_dir: Path | str | None = None,
@@ -40,8 +46,16 @@ def convert_csv_to_parquet(
 
     Returns a mapping of table name to the generated parquet file path.
     """
-    csv_dir = Path(csv_dir or PROJECT_ROOT)
-    target_dir = Path(target_dir or PARQUET_DIR)
+    csv_dir = (
+        Path(csv_dir)
+        if csv_dir is not None
+        else _configured_path("OLIST_CSV_DIR", PROJECT_ROOT)
+    )
+    target_dir = (
+        Path(target_dir)
+        if target_dir is not None
+        else _configured_path("OLIST_PARQUET_DIR", PARQUET_DIR)
+    )
     target_dir.mkdir(parents=True, exist_ok=True)
 
     generated: dict[str, Path] = {}
@@ -66,13 +80,39 @@ def convert_csv_to_parquet(
 
 
 def resolve_dataset_path() -> Path:
-    """Prefer a complete Parquet dataset while respecting an explicit DB override."""
+    """Resolve the configured source without writing when Parquet is already complete."""
     if os.getenv("OLIST_DB_PATH"):
         return resolve_db_path()
 
-    parquet_files = convert_csv_to_parquet()
-    if all(table in parquet_files for table in CSV_TABLES):
-        return PARQUET_DIR
+    parquet_dir = _configured_path("OLIST_PARQUET_DIR", PARQUET_DIR)
+
+    def missing_tables() -> list[str]:
+        return [
+            table
+            for table in PARQUET_TABLES
+            if not (parquet_dir / f"{table}.parquet").is_file()
+        ]
+
+    missing = missing_tables()
+    if not missing:
+        return parquet_dir
+
+    parquet_files = convert_csv_to_parquet(target_dir=parquet_dir)
+    missing = [
+        table
+        for table in PARQUET_TABLES
+        if table not in parquet_files or not parquet_files[table].is_file()
+    ]
+    if not missing:
+        return parquet_dir
+
+    if os.getenv("OLIST_PARQUET_DIR"):
+        raise FileNotFoundError(
+            f"Incomplete Parquet dataset in {parquet_dir}. Missing required tables: "
+            f"{', '.join(missing)}. Set OLIST_CSV_DIR to a directory containing the "
+            "source CSV files, or point OLIST_PARQUET_DIR at a complete dataset."
+        )
+
     return resolve_db_path()
 
 

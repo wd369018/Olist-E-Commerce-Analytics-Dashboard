@@ -18,6 +18,25 @@ Streamlit opens `http://localhost:8501` in your browser. Keep the terminal runni
 
 > On this machine the `python` command is not available; use the Windows Python launcher **`py`** as shown above. The project was built and tested with Python 3.14, pandas 3, Plotly 7 and Streamlit 1.57.
 
+## Deployment
+
+The committed `data/parquet/` datasets are the default production source. Install the requirements and start Streamlit directly:
+
+```sh
+python -m pip install -r requirements.txt
+streamlit run app.py
+```
+
+No SQLite database initialization or data conversion is needed at startup when the committed Parquet datasets are present. Use `.env.example` as a template for the supported variable names. Streamlit does not load `.env` files automatically, so set the variables in your shell or hosting provider's environment settings; keep any local `.env` file out of version control.
+
+If Parquet needs to be rebuilt from raw CSV files, run the conversion once during the image/build or release step:
+
+```sh
+python -m scripts.prepare_data --csv-dir <csv-folder> --output-dir <parquet-folder>
+```
+
+At runtime, set `OLIST_PARQUET_DIR` to that prepared directory. `OLIST_CSV_DIR` optionally identifies the CSV source directory when conversion is needed. Setting `OLIST_DB_PATH` explicitly selects SQLite instead of Parquet; use it only when deploying an existing, non-empty SQLite database. Do not generate a database on every production startup, especially on ephemeral or multi-replica hosts.
+
 ## Appearance
 
 The **☀️ Light / 🌙 Dark** switch in the top-right corner changes the whole workspace: cards, tables, charts, navigation, the sidebar and Streamlit's native widgets. The choice is kept in the URL (`?theme=dark`), session state and browser localStorage, so it survives a refresh, a bookmark or moving between pages. The first visit follows the browser theme.
@@ -89,10 +108,15 @@ When categories are selected, an order is kept only if it contains at least one 
 The dashboard resolves the data source in this order:
 
 1. `OLIST_DB_PATH` environment variable, if set (SQLite database).
-2. `data/parquet/`, when all converted Olist tables are available.
-3. `processed/olist_ecommerce.db`, then `olist_ecommerce.db` (SQLite fallback).
+2. `OLIST_PARQUET_DIR`, if set, or the committed `data/parquet/` directory when all required datasets are available.
+3. CSV-to-Parquet conversion from `OLIST_CSV_DIR` (defaults to the project root), when the Parquet dataset is incomplete.
+4. `processed/olist_ecommerce.db`, then `olist_ecommerce.db` (SQLite fallback).
 
-SQLite connections use `mode=ro`. CSV files are only read during conversion; the dashboard never modifies or deletes the source data.
+SQLite connections use `mode=ro`. The deployed dashboard needs no SQLite schema initialization: its analytics source is the versioned Parquet dataset. A complete Parquet directory is read without attempting to write to the application filesystem, which is suitable for read-only and ephemeral deployments. CSV files are only read during conversion; the dashboard never modifies or deletes the source data.
+
+For startup commands, CSV preparation, environment-variable setup, and SQLite override behaviour, see [Deployment](#deployment). The complete committed Parquet dataset is selected without conversion or writes. SQLite connections are read-only.
+
+The deployment and loader test suite has 91 passing tests; the preparation CLI and Python syntax checks also pass.
 
 Tables used (source row counts):
 
