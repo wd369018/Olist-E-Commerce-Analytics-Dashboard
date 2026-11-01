@@ -1,0 +1,64 @@
+# Default theme aligns Streamlit's native engine (calendar, selects, tables)
+[theme]
+primaryColor = "#635BFF"
+backgroundColor = "#F7F7FB"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#0F1117"
+font = "sans serif"
+baseRadius = "12px"
+buttonRadius = "10px"
+borderColor = "#E8E8F0"
+showWidgetBorder = true
+
+# Light and dark themes are defined separately so the in-app switch can align
+# Streamlit's native widgets (calendar, tables, selects) with the dashboard chrome.
+[theme.light]
+primaryColor = "#635BFF"
+backgroundColor = "#F7F7FB"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#0F1117"
+linkColor = "#635BFF"
+borderColor = "#E8E8F0"
+dataframeBorderColor = "#E8E8F0"
+dataframeHeaderBackgroundColor = "#F4F4FA"
+baseRadius = "12px"
+buttonRadius = "10px"
+showWidgetBorder = true
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap"
+
+[theme.light.sidebar]
+backgroundColor = "#FBFBFD"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#4B4B57"
+borderColor = "#E8E8F0"
+primaryColor = "#635BFF"
+
+[theme.dark]
+primaryColor = "#9B95FF"
+backgroundColor = "#08080D"
+secondaryBackgroundColor = "#111119"
+textColor = "#F4F4F8"
+linkColor = "#9B95FF"
+borderColor = "#24242F"
+dataframeBorderColor = "#24242F"
+dataframeHeaderBackgroundColor = "#191923"
+baseRadius = "12px"
+buttonRadius = "10px"
+showWidgetBorder = true
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap"
+
+[theme.dark.sidebar]
+backgroundColor = "#0B0B11"
+secondaryBackgroundColor = "#111119"
+textColor = "#C6C6D2"
+borderColor = "#24242F"
+primaryColor = "#9B95FF"
+
+[server]
+runOnSave = true
+fileWatcherType = "auto"
+
+[browser]
+gatherUsageStats = false

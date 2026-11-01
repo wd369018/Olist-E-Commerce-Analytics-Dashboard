@@ -1,0 +1,9 @@
+# Core runtime
+streamlit>=1.49,<2.0
+pandas>=2.2,<4.0
+numpy>=1.26,<3.0
+plotly>=5.24,<8.0
+pyarrow>=14.0.0
+
+# Test suite
+pytest>=8.0,<10.0
