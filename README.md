@@ -68,6 +68,10 @@ pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
+## Streamlit Community Cloud
+
+Use Python 3.12 (the Community Cloud default). The project pins Streamlit 1.56.0 to retain its Tornado-based default server; Streamlit 1.57 changed the default to Starlette, which is avoided due to reported ASGI startup and health-check failures.
+
 ## Skills Demonstrated
 
 - Data cleaning and preprocessing

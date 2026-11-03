@@ -1,5 +1,6 @@
-# Core runtime; these versions pass the dashboard suite on Python 3.14.
-streamlit==1.57.0
+# Streamlit 1.57 switches its default server from Tornado to Starlette.
+# Keep Streamlit's Tornado server as the default until the reported ASGI failures are resolved.
+streamlit==1.56.0
 pandas==3.0.3
 numpy==2.4.4
 plotly==7.0.0
